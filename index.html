@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FamilyShield iOS - 아이폰 스미싱 차단 & 가족 가디언</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React 18 & ReactDOM CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel Standalone for JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Google Fonts: Inter & Noto Sans KR -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Custom Styles & Font Setup -->
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #090d16;
+    }
+    /* Custom scrollbar for log feeds */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen selection:bg-blue-600 selection:text-white">
+  
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // --- Inline SVG Icon Helper Component ---
+    function Icon({ name, className = "w-5 h-5" }) {
+      const icons = {
+        'shield-check': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />,
+        'shield-alert': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />,
+        'message-square': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />,
+        'users': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />,
+        'phone-call': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />,
+        'bell': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />,
+        'code': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />,
+        'sparkles': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />,
+        'alert-triangle': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />,
+        'check-circle': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />,
+        'user-plus': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />,
+        'send': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />,
+        'search': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />,
+        'phone-off': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.516l2.257-1.13a1 1 0 00.502-1.21L9.22 4.28A1 1 0 008.272 3.6H5z" />,
+        'refresh': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />,
+        'external-link': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />,
+        'zap': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />,
+        'info': <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      };
+
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}>
+          {icons[name] || icons['shield-check']}
+        </svg>
+      );
+    }
+
+    const SAMPLE_MESSAGES = [
+      {
+        type: "택배 배송 사칭",
+        sender: "010-3819-2041",
+        text: "[우체국배송] 고객님 물품 주소지 불일치로 배송불가. 주소 재확인 부탁드립니다: http://post-kr.check-logistics.xyz",
+        risk: "HIGH"
+      },
+      {
+        type: "가족 긴급 사칭",
+        sender: "010-8921-1102",
+        text: "엄마 나 핸드폰 액정 깨져서 센터 맡겼어. 급하게 인증받아야 하는데 이 링크 눌러서 확인해줘 http://kakao-help-auth.me",
+        risk: "HIGH"
+      },
+      {
+        type: "모바일 청첩장 사칭",
+        sender: "010-5542-8812",
+        text: "[모바일청첩장] 저희 둘의 새로운 시작을 축하해 주세요. 일시: 11월12일 http://m-wedding-invitation.site",
+        risk: "HIGH"
+      },
+      {
+        type: "정상 금융 안내 문자",
+        sender: "1588-1234",
+        text: "[OO은행] 홍길동님의 입출금 계좌로 50,000원이 입금되었습니다. 거래내역을 공식 앱에서 확인하세요.",
+        risk: "SAFE"
+      }
+    ];
+
+    const INITIAL_FAMILY = [
+      {
+        id: 'fam-1',
+        name: '어머니 (김순자)',
+        role: '피보호자',
+        device: 'iPhone 13 Pro',
+        osVersion: 'iOS 17.5',
+        status: 'WARNING',
+        lastActive: '방금 전',
+        phone: '010-2345-6789',
+        threatsBlocked: 14,
+        avatarColor: 'bg-amber-500'
+      },
+      {
+        id: 'fam-2',
+        name: '아버지 (이철수)',
+        role: '피보호자',
+        device: 'iPhone 12',
+        osVersion: 'iOS 17.4',
+        status: 'SECURE',
+        lastActive: '12분 전',
+        phone: '010-8765-4321',
+        threatsBlocked: 8,
+        avatarColor: 'bg-emerald-500'
+      },
+      {
+        id: 'fam-3',
+        name: '딸 (이민지)',
+        role: '보호자 (공동 관리)',
+        device: 'iPhone 15',
+        osVersion: 'iOS 18.0',
+        status: 'SECURE',
+        lastActive: '3분 전',
+        phone: '010-4321-8765',
+        threatsBlocked: 2,
+        avatarColor: 'bg-blue-500'
+      }
+    ];
+
+    const INITIAL_SPAM_CALLS = [
+      { number: '02-6951-0114', category: '대출 권유 피싱', reports: 342, risk: 'HIGH' },
+      { number: '070-7913-9002', category: '검찰/수사기관 사칭', reports: 1205, risk: 'HIGH' },
+      { number: '02-1800-0000', category: '카드사 사칭 안내', reports: 89, risk: 'MEDIUM' },
+      { number: '010-9988-1122', category: '주식 종목 리딩방 스팸', reports: 561, risk: 'HIGH' }
+    ];
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('smishing'); // 'smishing', 'family', 'callkit', 'code'
+      
+      // Smishing Scanner State
+      const [inputMessage, setInputMessage] = useState('');
+      const [senderPhone, setSenderPhone] = useState('010-1234-5678');
+      const [isAnalyzing, setIsAnalyzing] = useState(false);
+      const [scanResult, setScanResult] = useState(null);
+      
+      // Family Guardian State
+      const [familyMembers, setFamilyMembers] = useState(INITIAL_FAMILY);
+      const [notifications, setNotifications] = useState([
+        {
+          id: 'notif-1',
+          time: '10분 전',
+          title: '🚨 [가족 알림] 어머니 기기 위험 스미싱 감지',
+          desc: '어머니(010-2345-6789) 전화번호로 접속 유도성 악성 링크가 수신되어 IdentityLookup에서 스팸 처리되었습니다.',
+          severity: 'high'
+        }
+      ]);
+      const [showAddFamilyModal, setShowAddFamilyModal] = useState(false);
+      const [newFamilyName, setNewFamilyName] = useState('');
+      const [newFamilyPhone, setNewFamilyPhone] = useState('');
+
+      // CallKit State
+      const [spamList, setSpamList] = useState(INITIAL_SPAM_CALLS);
+      const [searchNumber, setSearchNumber] = useState('');
+      const [newSpamNum, setNewSpamNum] = useState('');
+      const [newSpamCategory, setNewSpamCategory] = useState('');
+
+      // Toast Notification System
+      const [toastMessage, setToastMessage] = useState(null);
+
+      const showToast = (text, type = 'info') => {
+        setToastMessage({ text, type });
+        setTimeout(() => setToastMessage(null), 3500);
+      };
+
+      const analyzeMessageWithAI = async (messageText) => {
+        if (!messageText.trim()) return;
+
+        setIsAnalyzing(true);
+        setScanResult(null);
+
+        try {
+          const apiKey = ""; // Provided automatically in runtime environment
+          const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+          const systemPrompt = `You are an expert iOS Security AI engine built inside a Korean iPhone smishing guard app. 
+Analyze the input Korean SMS message for smishing, voice phishing, or scam malware delivery risk.
+Return JSON ONLY with this structure:
+{
+  "riskLevel": "HIGH" | "MEDIUM" | "SAFE",
+  "riskScore": number (0 to 100),
+  "attackType": "string in Korean (e.g., 택배 사칭, 가족 긴급 사칭, 공공기관 사칭, 금융 사칭, 일반 안내 문자 등)",
+  "dangerReason": "string in Korean summarizing the threat clearly",
+  "actionAdvice": "string in Korean advising user what to do step by step",
+  "detectedUrls": ["array of URL strings found in text"],
+  "simulatedIdentityLookupAction": "SPAM_FOLDER" | "WARNING_FLAG" | "PASS"
+}`;
+
+          const payload = {
+            contents: [{ parts: [{ text: `Analyze this SMS message: "${messageText}"` }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: {
+              responseMimeType: "application/json"
+            }
+          };
+
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) throw new Error('API request failed');
+
+          const data = await response.json();
+          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+          if (rawText) {
+            const parsed = JSON.parse(rawText);
+            setScanResult(parsed);
+
+            if (parsed.riskLevel === 'HIGH') {
+              const newNotif = {
+                id: `notif-${Date.now()}`,
+                time: '방금 전',
+                title: '⚠️ [실시간 감지] 고위험 스미싱 수신',
+                desc: `"${senderPhone}" 번호에서 [${parsed.attackType}] 수신. iOS IdentityLookup이 자동 정크 처리했습니다.`,
+                severity: 'high'
+              };
+              setNotifications(prev => [newNotif, ...prev]);
+              showToast('위험 스미싱 문자가 진단되어 가족 네트워크에 경고를 등록했습니다.', 'danger');
+            } else {
+              showToast('문자 진단 완료: 안전한 메시지 패턴입니다.', 'success');
+            }
+          } else {
+            throw new Error('Empty AI response');
+          }
+        } catch (err) {
+          console.warn("Falling back to client heuristic analysis:", err);
+          const hasUrl = /https?:\/\/|www\./i.test(messageText);
+          const isKeywords = /(택배|액정|인증|청첩장|지원금|환급|결제승인)/i.test(messageText);
+          
+          const fallback = {
+            riskLevel: (hasUrl && isKeywords) ? "HIGH" : (hasUrl ? "MEDIUM" : "SAFE"),
+            riskScore: (hasUrl && isKeywords) ? 94 : (hasUrl ? 60 : 10),
+            attackType: isKeywords ? "피싱 URL 포함 스미싱 문자" : "일반 알림 문자",
+            dangerReason: hasUrl ? "미확인 외부 링크가 포함되어 악성 스파이웨어나 개인정보 유출 위험이 매우 높습니다." : "위험 요소가 발견되지 않은 일반 안내 메시지입니다.",
+            actionAdvice: hasUrl ? "문자 내부의 링크를 절대 클릭하지 마시고 번호를 차단하십시오." : "안심하고 메시지를 수신하셔도 됩니다.",
+            detectedUrls: messageText.match(/https?:\/\/[^\s]+/g) || [],
+            simulatedIdentityLookupAction: (hasUrl && isKeywords) ? "SPAM_FOLDER" : "PASS"
+          };
+          setScanResult(fallback);
+          showToast('로컬 보안 엔진으로 스미싱 분석을 완료했습니다.', 'info');
+        } finally {
+          setIsAnalyzing(false);
+        }
+      };
+
+      const handleSelectSample = (sample) => {
+        setInputMessage(sample.text);
+        setSenderPhone(sample.sender);
+        analyzeMessageWithAI(sample.text);
+      };
+
+      const handleSimulateRemoteThreat = (member) => {
+        const updated = familyMembers.map(m => {
+          if (m.id === member.id) {
+            return { ...m, status: 'DANGER', threatsBlocked: m.threatsBlocked + 1 };
+          }
+          return m;
+        });
+        setFamilyMembers(updated);
+
+        const alertNotif = {
+          id: `notif-${Date.now()}`,
+          time: '방금 전',
+          title: `🚨 [원격 경고] ${member.name} 기기 스미싱 긴급 차단!`,
+          desc: `${member.name}님 기기로 사칭 스미싱 링크가 전달되어 차단되었습니다. 전화 확인이 권장됩니다.`,
+          severity: 'critical'
+        };
+        setNotifications(prev => [alertNotif, ...prev]);
+        showToast(`가족 경계 경보: ${member.name}님의 기기에서 위험이 감지되었습니다!`, 'danger');
+      };
+
+      const handleSendSafetyPing = (member) => {
+        showToast(`${member.name}님에게 원격 '안전 점검 안내 알림'을 전송했습니다.`, 'success');
+      };
+
+      const handleAddFamilyMember = (e) => {
+        e.preventDefault();
+        if (!newFamilyName || !newFamilyPhone) return;
+
+        const newMember = {
+          id: `fam-${Date.now()}`,
+          name: newFamilyName,
+          role: '피보호자',
+          device: 'iPhone',
+          osVersion: 'iOS 17.5',
+          status: 'SECURE',
+          lastActive: '방금 등록됨',
+          phone: newFamilyPhone,
+          threatsBlocked: 0,
+          avatarColor: 'bg-purple-500'
+        };
+
+        setFamilyMembers([...familyMembers, newMember]);
+        setNewFamilyName('');
+        setNewFamilyPhone('');
+        setShowAddFamilyModal(false);
+        showToast(`${newMember.name}님이 가디언 보호 네트워크에 추가되었습니다.`, 'success');
+      };
+
+      const handleAddSpamNumber = (e) => {
+        e.preventDefault();
+        if (!newSpamNum) return;
+
+        setSpamList([
+          { number: newSpamNum, category: newSpamCategory || '스팸 피싱 차단', reports: 1, risk: 'HIGH' },
+          ...spamList
+        ]);
+        setNewSpamNum('');
+        setNewSpamCategory('');
+        showToast(`CallKit 차단 DB에 ${newSpamNum} 번호가 등록되었습니다.`, 'success');
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col justify-between">
+          
+          {/* Toast Notification Container */}
+          {toastMessage && (
+            <div className="fixed top-5 right-5 z-50 animate-bounce">
+              <div className={`px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 border ${
+                toastMessage.type === 'danger' ? 'bg-red-950/95 border-red-500 text-white' :
+                toastMessage.type === 'success' ? 'bg-emerald-950/95 border-emerald-500 text-white' :
+                'bg-slate-900/95 border-slate-700 text-slate-200'
+              }`}>
+                <Icon name={toastMessage.type === 'danger' ? 'alert-triangle' : 'check-circle'} className={`w-5 h-5 ${
+                  toastMessage.type === 'danger' ? 'text-red-400' : 'text-emerald-400'
+                }`} />
+                <span className="text-sm font-medium">{toastMessage.text}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Top Header */}
+          <header className="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
+            <div className="max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                  <Icon name="shield-check" className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="font-bold text-lg text-white tracking-tight">FamilyShield iOS</h1>
+                    <span className="px-2 py-0.5 text-[10px] uppercase font-semibold bg-blue-500/20 text-blue-400 rounded-full border border-blue-500/30">
+                      GitHub & Vercel Ready
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">아이폰 스미싱 차단 & 원격 가족 가디언 웹 애플리케이션</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setActiveTab('family')}
+                  className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 transition border border-slate-800 relative"
+                  title="가족 알림 센터"
+                >
+                  <Icon name="bell" className="w-5 h-5 text-slate-300" />
+                  {notifications.length > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping" />
+                  )}
+                  {notifications.length > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full" />
+                  )}
+                </button>
+
+                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  IdentityLookup 엔진 가동 중
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* Main Layout Container */}
+          <main className="max-w-6xl mx-auto px-4 py-6 w-full flex-grow grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            {}
+            <div className="lg:col-span-4 space-y-5">
+              {/* Tab Navigation Card */}
+              <div className="bg-slate-950 p-2 rounded-2xl border border-slate-800/80 flex flex-col gap-1">
+                <button
+                  onClick={() => setActiveTab('smishing')}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-medium text-sm transition ${
+                    activeTab === 'smishing'
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon name="message-square" className="w-4 h-4" />
+                    <span>SMS 스미싱 AI 스캐너</span>
+                  </div>
+                  <span className="text-xs bg-slate-800/80 px-2 py-0.5 rounded text-slate-300">1번 기능</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('family')}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-medium text-sm transition ${
+                    activeTab === 'family'
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon name="users" className="w-4 h-4" />
+                    <span>가족 원격 가디언</span>
+                  </div>
+                  <span className="text-xs bg-slate-800/80 px-2 py-0.5 rounded text-slate-300">4번 기능</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('callkit')}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-medium text-sm transition ${
+                    activeTab === 'callkit'
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon name="phone-call" className="w-4 h-4" />
+                    <span>CallKit 피싱 전화 차단</span>
+                  </div>
+                  <span className="text-xs bg-slate-800/80 px-2 py-0.5 rounded text-slate-300">확장</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('code')}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-medium text-sm transition ${
+                    activeTab === 'code'
+                      ? 'bg-slate-800 text-emerald-400 border border-emerald-500/30'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon name="code" className="w-4 h-4 text-emerald-400" />
+                    <span>iOS Swift 개발 소스코드</span>
+                  </div>
+                  <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded">Swift</span>
+                </button>
+              </div>
+
+              {/* System Security Integration Card */}
+              <div className="bg-slate-950 rounded-2xl p-5 border border-slate-800/80 space-y-4">
+                <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                  <Icon name="zap" className="w-4 h-4 text-amber-400" />
+                  아이폰 보안 프레임워크 연동
+                </h3>
+                
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <span className="text-slate-300">IdentityLookup (SMS 필터)</span>
+                    </div>
+                    <span className="text-emerald-400 font-semibold">정상 작동</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <span className="text-slate-300">CallKit (전화 차단 DB)</span>
+                    </div>
+                    <span className="text-emerald-400 font-semibold">4,120건 동기화</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-blue-400" />
+                      <span className="text-slate-300">APNs (가족 푸시 알림)</span>
+                    </div>
+                    <span className="text-blue-400 font-semibold">연동 완료</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 text-[11px] text-slate-500 border-t border-slate-800/80 flex items-center justify-between">
+                  <span>단일 파일 배포: shield.html</span>
+                  <button 
+                    onClick={() => showToast('스스 피싱 차단 DB 동기화 완료!', 'success')}
+                    className="text-blue-400 hover:underline flex items-center gap-1"
+                  >
+                    <Icon name="refresh" className="w-3 h-3" /> 동기화
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {}
+            <div className="lg:col-span-8 space-y-6">
+
+              {/* TAB 1: Smishing Scanner (IdentityLookup) */}
+              {activeTab === 'smishing' && (
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-blue-900/30 to-slate-950 p-6 rounded-2xl border border-blue-500/20">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400">
+                        <Icon name="message-square" className="w-5 h-5" />
+                      </div>
+                      <h2 className="text-lg font-bold text-white">AI SMS & URL 스미싱 정밀 스캐너</h2>
+                    </div>
+                    <p className="text-sm text-slate-400">
+                      iOS <code className="bg-slate-900 text-blue-300 px-1.5 py-0.5 rounded text-xs border border-slate-800">IdentityLookup</code> 메시지 필터가 실시간 검사하는 흐름입니다. 샘플을 누르거나 악성 의심 문자를 입력해 보세요.
+                    </p>
+                  </div>
+
+                  {/* Sample SMS Preset Selectors */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      사칭 스미싱 테스트 샘플 선택:
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {SAMPLE_MESSAGES.map((sample, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleSelectSample(sample)}
+                          className={`p-2.5 rounded-xl text-left border text-xs transition flex flex-col justify-between gap-2 ${
+                            sample.risk === 'HIGH'
+                              ? 'bg-slate-950 border-slate-800 hover:border-red-500/50 hover:bg-red-950/20'
+                              : 'bg-slate-950 border-slate-800 hover:border-emerald-500/50 hover:bg-emerald-950/20'
+                          }`}
+                        >
+                          <span className="font-semibold text-slate-200 flex items-center justify-between">
+                            {sample.type}
+                            <span className={`w-2 h-2 rounded-full ${sample.risk === 'HIGH' ? 'bg-red-400' : 'bg-emerald-400'}`} />
+                          </span>
+                          <span className="text-[11px] text-slate-400 line-clamp-2">{sample.text}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* SMS Input Form */}
+                  <div className="bg-slate-950 rounded-2xl border border-slate-800/80 p-5 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs text-slate-400 mb-1">발신 전화번호</label>
+                        <input
+                          type="text"
+                          value={senderPhone}
+                          onChange={(e) => setSenderPhone(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs text-slate-400 mb-1">수신된 문자 본문 내용</label>
+                        <span className="text-[10px] text-slate-500 float-right">Gemini 3 AI 분석</span>
+                      </div>
+                    </div>
+
+                    <textarea
+                      rows={4}
+                      value={inputMessage}
+                      onChange={(e) => setInputMessage(e.target.value)}
+                      placeholder="의심스러운 문자를 여기에 붙여넣으세요... (예: [우체국배송] 주소불일치 확인 http://...)"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500 placeholder:text-slate-600 resize-none"
+                    />
+
+                    <div className="flex justify-end gap-3">
+                      <button
+                        onClick={() => { setInputMessage(''); setScanResult(null); }}
+                        className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 text-sm font-medium transition"
+                      >
+                        초기화
+                      </button>
+                      <button
+                        onClick={() => analyzeMessageWithAI(inputMessage)}
+                        disabled={isAnalyzing || !inputMessage.trim()}
+                        className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium text-sm flex items-center gap-2 transition disabled:opacity-50 shadow-lg shadow-blue-600/30"
+                      >
+                        {isAnalyzing ? (
+                          <>
+                            <Icon name="refresh" className="w-4 h-4 animate-spin" />
+                            AI 분석중...
+                          </>
+                        ) : (
+                          <>
+                            <Icon name="sparkles" className="w-4 h-4 text-cyan-300" />
+                            스미싱 진단 실행
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Scan Result Output */}
+                  {scanResult && (
+                    <div className={`rounded-2xl border p-6 space-y-5 transition-all ${
+                      scanResult.riskLevel === 'HIGH'
+                        ? 'bg-red-950/20 border-red-500/40'
+                        : scanResult.riskLevel === 'MEDIUM'
+                        ? 'bg-amber-950/20 border-amber-500/40'
+                        : 'bg-emerald-950/20 border-emerald-500/40'
+                    }`}>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-3 rounded-2xl ${
+                            scanResult.riskLevel === 'HIGH' ? 'bg-red-500/20 text-red-400' :
+                            scanResult.riskLevel === 'MEDIUM' ? 'bg-amber-500/20 text-amber-400' :
+                            'bg-emerald-500/20 text-emerald-400'
+                          }`}>
+                            <Icon name={scanResult.riskLevel === 'HIGH' ? 'shield-alert' : 'shield-check'} className="w-7 h-7" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-lg font-bold text-white">
+                                {scanResult.riskLevel === 'HIGH' ? '🚨 고위험 스미싱 감지' :
+                                 scanResult.riskLevel === 'MEDIUM' ? '⚠️ 주의 메시지' :
+                                 '✅ 안전한 일반 문자'}
+                              </h3>
+                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                                scanResult.riskLevel === 'HIGH' ? 'bg-red-500/20 border-red-500 text-red-400' :
+                                scanResult.riskLevel === 'MEDIUM' ? 'bg-amber-500/20 border-amber-500 text-amber-400' :
+                                'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                              }`}>
+                                위험도 {scanResult.riskScore}%
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1">유형 분류: <span className="text-slate-200 font-semibold">{scanResult.attackType}</span></p>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-[11px] text-slate-400 block">iOS 수신 분류</span>
+                          <span className="text-xs font-mono font-bold text-blue-400 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800">
+                            {scanResult.simulatedIdentityLookupAction === 'SPAM_FOLDER' ? '정크/스팸함 자동 이동' : '일반 수신함'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                        <div className="bg-slate-900/80 rounded-xl p-3.5 border border-slate-800 space-y-1">
+                          <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5">
+                            <Icon name="alert-triangle" className="w-3.5 h-3.5 text-amber-400" /> 위험 요소
+                          </span>
+                          <p className="text-xs text-slate-300 leading-relaxed">{scanResult.dangerReason}</p>
+                        </div>
+
+                        <div className="bg-slate-900/80 rounded-xl p-3.5 border border-slate-800 space-y-1">
+                          <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5">
+                            <Icon name="info" className="w-3.5 h-3.5 text-blue-400" /> 대응 지침
+                          </span>
+                          <p className="text-xs text-slate-300 leading-relaxed">{scanResult.actionAdvice}</p>
+                        </div>
+                      </div>
+
+                      {scanResult.detectedUrls && scanResult.detectedUrls.length > 0 && (
+                        <div className="bg-red-900/30 rounded-xl p-3 border border-red-500/30 flex items-center justify-between">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <Icon name="external-link" className="w-4 h-4 text-red-400 shrink-0" />
+                            <span className="text-xs text-red-300 font-mono truncate">
+                              감지된 악성 도메인: {scanResult.detectedUrls.join(', ')}
+                            </span>
+                          </div>
+                          <span className="text-[10px] bg-red-500 text-white font-bold px-2 py-0.5 rounded shrink-0">접속 차단 조치</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {}
+              {activeTab === 'family' && (
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-emerald-900/30 to-slate-950 p-6 rounded-2xl border border-emerald-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Icon name="users" className="w-5 h-5 text-emerald-400" />
+                        <h2 className="text-lg font-bold text-white">가족 원격 가디언 네트워크 (Family Shield)</h2>
+                      </div>
+                      <p className="text-sm text-slate-400">
+                        부모님이나 자녀가 스미싱 문자를 수신하거나 피싱 사이트에 노출되면 보호자에게 원격 긴급 알림이 전송됩니다.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowAddFamilyModal(true)}
+                      className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs flex items-center gap-2 shadow-lg shadow-emerald-600/30 shrink-0"
+                    >
+                      <Icon name="user-plus" className="w-4 h-4" />
+                      가족 기기 추가
+                    </button>
+                  </div>
+
+                  {/* Connected Family Member Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {familyMembers.map((member) => (
+                      <div
+                        key={member.id}
+                        className={`bg-slate-950 rounded-2xl p-5 border transition flex flex-col justify-between space-y-4 ${
+                          member.status === 'DANGER' ? 'border-red-500/50 bg-red-950/10' : 'border-slate-800'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-full ${member.avatarColor} text-white font-bold flex items-center justify-center text-sm shadow-md`}>
+                                {member.name.charAt(0)}
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-sm text-white">{member.name}</h4>
+                                <span className="text-[11px] text-slate-400">{member.role} • {member.device}</span>
+                              </div>
+                            </div>
+
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              member.status === 'DANGER' ? 'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse' :
+                              member.status === 'WARNING' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                              'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            }`}>
+                              {member.status === 'DANGER' ? '위험 감지' : member.status === 'WARNING' ? '주의' : '안전함'}
+                            </span>
+                          </div>
+
+                          <div className="space-y-1.5 text-xs text-slate-400 border-t border-slate-900 pt-3">
+                            <div className="flex justify-between">
+                              <span>누적 차단 건수:</span>
+                              <span className="font-semibold text-slate-200">{member.threatsBlocked}건</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>동기화 상태:</span>
+                              <span className="text-slate-300">{member.lastActive}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-900 flex items-center gap-2">
+                          <button
+                            onClick={() => handleSendSafetyPing(member)}
+                            className="flex-1 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-medium transition flex items-center justify-center gap-1"
+                          >
+                            <Icon name="send" className="w-3 h-3 text-blue-400" />
+                            안부 확인
+                          </button>
+                          <button
+                            onClick={() => handleSimulateRemoteThreat(member)}
+                            className="px-2.5 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 border border-red-800/40 text-red-400 text-[11px] font-medium transition"
+                            title="스미싱 감지 상황 원격 연출"
+                          >
+                            위협 연출
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Family Threat Notification Feed */}
+                  <div className="bg-slate-950 rounded-2xl border border-slate-800/80 p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                        <Icon name="bell" className="w-4 h-4 text-blue-400" />
+                        실시간 원격 가족 위험 감지로그 (Live Push Feed)
+                      </h3>
+                      <span className="text-xs text-slate-500">{notifications.length}개의 알림</span>
+                    </div>
+
+                    <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                      {notifications.map((notif) => (
+                        <div
+                          key={notif.id}
+                          className={`p-3.5 rounded-xl border transition flex items-start gap-3 ${
+                            notif.severity === 'critical' ? 'bg-red-950/20 border-red-500/30' :
+                            'bg-slate-900/60 border-slate-800'
+                          }`}
+                        >
+                          <div className={`p-2 rounded-lg shrink-0 mt-0.5 ${
+                            notif.severity === 'critical' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'
+                          }`}>
+                            <Icon name="alert-triangle" className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <h4 className="font-bold text-xs text-slate-200">{notif.title}</h4>
+                              <span className="text-[10px] text-slate-500">{notif.time}</span>
+                            </div>
+                            <p className="text-xs text-slate-400 leading-relaxed">{notif.desc}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {}
+              {activeTab === 'callkit' && (
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-purple-900/30 to-slate-950 p-6 rounded-2xl border border-purple-500/20">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400">
+                        <Icon name="phone-call" className="w-5 h-5" />
+                      </div>
+                      <h2 className="text-lg font-bold text-white">CallKit 보이스피싱 & 스팸 전화 차단기</h2>
+                    </div>
+                    <p className="text-sm text-slate-400">
+                      애플의 <code className="bg-slate-900 text-purple-300 px-1.5 py-0.5 rounded text-xs border border-slate-800">CXCallDirectoryProvider</code> DB를 이용해 수신 전화 시 아이폰 화면에 "보이스피싱 경고" 라벨을 표출합니다.
+                    </p>
+                  </div>
+
+                  {/* Add Spam Number Input */}
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-3">
+                    <h3 className="text-xs font-semibold text-slate-300">신규 차단 전화번호 등록 (CallKit DB 동기화)</h3>
+                    <form onSubmit={handleAddSpamNumber} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        placeholder="전화번호 (예: 02-1234-5678)"
+                        value={newSpamNum}
+                        onChange={(e) => setNewSpamNum(e.target.value)}
+                        className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="차단 사유 (예: 검찰 사칭 피싱)"
+                        value={newSpamCategory}
+                        onChange={(e) => setNewSpamCategory(e.target.value)}
+                        className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500"
+                      />
+                      <button
+                        type="submit"
+                        className="bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-xl text-xs py-2 px-4 transition flex items-center justify-center gap-1 shadow-lg shadow-purple-600/30"
+                      >
+                        <Icon name="phone-off" className="w-3.5 h-3.5" />
+                        차단 DB 추가
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Blocklist Table */}
+                  <div className="bg-slate-950 rounded-2xl border border-slate-800/80 p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-sm text-white">등록된 피싱/스팸 DB</h3>
+                      <div className="relative w-48">
+                        <Icon name="search" className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
+                        <input
+                          type="text"
+                          placeholder="번호 검색..."
+                          value={searchNumber}
+                          onChange={(e) => setSearchNumber(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {spamList
+                        .filter(item => item.number.includes(searchNumber) || item.category.includes(searchNumber))
+                        .map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between text-xs"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 rounded-lg bg-red-500/10 text-red-400">
+                                <Icon name="phone-off" className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <span className="font-mono font-bold text-slate-200 block">{item.number}</span>
+                                <span className="text-[11px] text-slate-400">{item.category}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              <span className="text-[11px] text-slate-500">신고 {item.reports}건</span>
+                              <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-[10px] font-bold border border-red-500/30">
+                                차단 적용됨
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {}
+              {activeTab === 'code' && (
+                <div className="space-y-6">
+                  <div className="bg-slate-950 rounded-2xl border border-slate-800/80 p-6 space-y-5">
+                    <div className="border-b border-slate-800 pb-4">
+                      <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Icon name="code" className="w-5 h-5 text-emerald-400" />
+                        iOS 핵심 프레임워크 구현 코드 (Swift)
+                      </h2>
+                      <p className="text-xs text-slate-400 mt-1">
+                        아이폰 앱에 <code className="text-emerald-400">IdentityLookup</code> 및 <code className="text-emerald-400">CallKit</code>을 구현할 때 사용하는 확장(Extension) 소스코드입니다.
+                      </p>
+                    </div>
+
+                    <div className="space-y-5">
+                      <div>
+                        <h3 className="text-xs font-semibold text-blue-400 mb-2 flex items-center gap-1.5">
+                          1. MessageFilterExtension.swift (IdentityLookup 문자 차단)
+                        </h3>
+                        <pre className="bg-slate-900 p-4 rounded-xl text-xs font-mono text-slate-300 overflow-x-auto border border-slate-800 leading-relaxed">
+{`import IdentityLookup
+
+final class MessageFilterExtension: ILMessageFilterExtension {}
+
+extension MessageFilterExtension: ILMessageFilterQueryHandling {
+    func handle(_ queryRequest: ILMessageFilterQueryRequest, context: ILMessageFilterExtensionContext, completion: @escaping (ILMessageFilterQueryResponse) -> Void) {
+        
+        let response = ILMessageFilterQueryResponse()
+        let messageBody = queryRequest.messageBody?.lowercased() ?? ""
+        
+        // 악성 URL 패턴 및 스미싱 키워드 검사
+        if messageBody.contains("http://") || messageBody.contains("택배") || messageBody.contains("액정") {
+            // iOS 수신함이 아닌 정크/스팸함으로 자동 분류
+            response.action = .filter
+        } else {
+            response.action = .none
+        }
+        
+        completion(response)
+    }
+}`}
+                        </pre>
+                      </div>
+
+                      <div>
+                        <h3 className="text-xs font-semibold text-purple-400 mb-2 flex items-center gap-1.5">
+                          2. CallDirectoryHandler.swift (CallKit 보이스피싱 경고)
+                        </h3>
+                        <pre className="bg-slate-900 p-4 rounded-xl text-xs font-mono text-slate-300 overflow-x-auto border border-slate-800 leading-relaxed">
+{`import CallKit
+
+class CallDirectoryHandler: CXCallDirectoryProvider {
+    override func beginRequest(with context: CXCallDirectoryExtensionContext) {
+        
+        // 피싱/스팸 차단 번호 등록
+        let blockedNumbers: [CXCallDirectoryPhoneNumber] = [82269510114, 827079139002]
+        for number in blockedNumbers {
+            context.addBlockingEntry(withNextSequentialPhoneNumber: number)
+        }
+        
+        // 수신 화면 표시 라벨 지정
+        context.addIdentificationEntry(withNextSequentialPhoneNumber: 821099881122, label: "⚠️ [경고] 보이스피싱 의심 번호")
+        
+        context.completeRequest()
+    }
+}`}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </main>
+
+          {}
+          {showAddFamilyModal && (
+            <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-5 shadow-2xl">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <h3 className="font-bold text-base text-white flex items-center gap-2">
+                    <Icon name="user-plus" className="w-5 h-5 text-emerald-400" />
+                    새 가족 구성원 추가
+                  </h3>
+                  <button 
+                    onClick={() => setShowAddFamilyModal(false)}
+                    className="text-slate-500 hover:text-slate-300 text-sm font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <form onSubmit={handleAddFamilyMember} className="space-y-4">
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">가족 이름</label>
+                    <input
+                      type="text"
+                      placeholder="예: 어머니 (김정숙)"
+                      required
+                      value={newFamilyName}
+                      onChange={(e) => setNewFamilyName(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">아이폰 전화번호</label>
+                    <input
+                      type="text"
+                      placeholder="010-XXXX-XXXX"
+                      required
+                      value={newFamilyPhone}
+                      onChange={(e) => setNewFamilyPhone(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-400 leading-relaxed">
+                    ℹ️ 연결이 완료되면 APNs 연동을 통해 가족 기기 스미싱 수신 시 실시간 경고 푸시 알림이 발송됩니다.
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddFamilyModal(false)}
+                      className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium transition"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition shadow-lg shadow-emerald-600/30"
+                    >
+                      연결하기
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Footer */}
+          <footer className="border-t border-slate-800/80 bg-slate-950 py-4 text-center text-xs text-slate-500">
+            <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+              <span>© 2026 FamilyShield iOS - Single File Web Application</span>
+              <span className="text-slate-600">Deployable on GitHub Pages & Vercel</span>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+
+    // Render React App
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
